@@ -74,9 +74,9 @@ final class GameModel {
     /// Samples normalized 0...1 x and altitude for the last flight path
     private(set) var lastFlightPath: [FlightSample] = []
 
-    /// `nonisolated` so `deinit` can cancel tasks without actor isolation errors (Swift 6).
-    nonisolated private var autopilotTask: Task<Void, Never>?
-    nonisolated private var landTask: Task<Void, Never>?
+    /// `nonisolated(unsafe)` so `deinit` can cancel tasks; `@Observable` rejects plain `nonisolated` on mutable vars.
+    nonisolated(unsafe) private var autopilotTask: Task<Void, Never>?
+    nonisolated(unsafe) private var landTask: Task<Void, Never>?
 
     enum LaunchPhase: Sendable {
         case idle
