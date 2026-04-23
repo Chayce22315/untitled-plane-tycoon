@@ -85,6 +85,9 @@ final class GameModel {
     private(set) var lastTotalMetersDisplay: Double = 0
     private(set) var pendingCoinReward: Double = 0
 
+    /// Easter egg: typing the longest phobia name unlocks the Admin tab.
+    private(set) var adminUnlocked: Bool = false
+
     /// `nonisolated(unsafe)` so `deinit` can cancel tasks; `@Observable` rejects plain `nonisolated` on mutable vars.
     nonisolated(unsafe) private var autopilotTask: Task<Void, Never>?
     nonisolated(unsafe) private var landTask: Task<Void, Never>?
@@ -212,6 +215,60 @@ final class GameModel {
             restartAutopilot()
         }
         return true
+    }
+
+    func enableAdminPanel() {
+        adminUnlocked = true
+    }
+
+    func disableAdminPanel() {
+        adminUnlocked = false
+    }
+
+    func adminGrantMoney(_ amount: Double) {
+        guard adminUnlocked else { return }
+        money += max(0, amount)
+    }
+
+    func adminSetUpgradeLevel(_ kind: UpgradeKind, level: Int) {
+        guard adminUnlocked else { return }
+        let clamped = min(99, max(0, level))
+        upgradeLevels[kind] = clamped
+        if kind == .autopilot {
+            restartAutopilot()
+        }
+    }
+
+    func adminMaxAllUpgrades(cap: Int) {
+        guard adminUnlocked else { return }
+        let c = min(99, max(0, cap))
+        for kind in UpgradeKind.allCases {
+            upgradeLevels[kind] = c
+        }
+        restartAutopilot()
+    }
+
+    func adminResetProgress() {
+        guard adminUnlocked else { return }
+        landTask?.cancel()
+        landTask = nil
+        autopilotTask?.cancel()
+        autopilotTask = nil
+        money = 0
+        totalLaunches = 0
+        bestDistanceMeters = 0
+        totalMetersFlown = 0
+        launchCharge = 0
+        phase = .idle
+        lastFlightPath = []
+        lastBaseMeters = 0
+        lastScoreMultiplier = 1
+        lastTotalMetersDisplay = 0
+        pendingCoinReward = 0
+        for kind in UpgradeKind.allCases {
+            upgradeLevels[kind] = 0
+        }
+        startAutopilotIfNeeded()
     }
 
     private func startAutopilotIfNeeded() {
