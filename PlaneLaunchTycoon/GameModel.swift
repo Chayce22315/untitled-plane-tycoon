@@ -7,6 +7,7 @@ enum UpgradeKind: String, CaseIterable, Identifiable, Sendable {
     case fuel
     case runway
     case marketing
+    case scoreMultiplier
     case autopilot
 
     var id: String { rawValue }
@@ -18,6 +19,7 @@ enum UpgradeKind: String, CaseIterable, Identifiable, Sendable {
         case .fuel: "Fuel tanks"
         case .runway: "Runway extension"
         case .marketing: "Ticket pricing"
+        case .scoreMultiplier: "Distance multiplier"
         case .autopilot: "Autopilot fleet"
         }
     }
@@ -29,6 +31,7 @@ enum UpgradeKind: String, CaseIterable, Identifiable, Sendable {
         case .fuel: "Stay airborne longer."
         case .runway: "Higher starting speed."
         case .marketing: "Earn more per meter flown."
+        case .scoreMultiplier: "Starts at ×1. Each level adds to the landing score multiplier and coin payout."
         case .autopilot: "Passive income while away."
         }
     }
@@ -40,6 +43,7 @@ enum UpgradeKind: String, CaseIterable, Identifiable, Sendable {
         case .fuel: "fuelpump.fill"
         case .runway: "road.lanes"
         case .marketing: "dollarsign.circle.fill"
+        case .scoreMultiplier: "multiply.circle.fill"
         case .autopilot: "airplane.circle"
         }
     }
@@ -51,6 +55,7 @@ enum UpgradeKind: String, CaseIterable, Identifiable, Sendable {
         case .fuel: 35
         case .runway: 50
         case .marketing: 80
+        case .scoreMultiplier: 70
         case .autopilot: 200
         }
         return (base * pow(1.18, Double(level))).rounded(.up)
@@ -74,7 +79,7 @@ final class GameModel {
     /// Samples normalized 0...1 x and altitude for the last flight path
     private(set) var lastFlightPath: [FlightSample] = []
 
-    /// Last throw: base meters, score multiplier (marketing + power), coins applied after landing animation
+    /// Last throw: base meters, score multiplier (upgrade; base ×1), coins applied after landing animation
     private(set) var lastBaseMeters: Double = 0
     private(set) var lastScoreMultiplier: Double = 1
     private(set) var lastTotalMetersDisplay: Double = 0
@@ -146,7 +151,8 @@ final class GameModel {
         lastFlightPath = path.samples
         let distance = path.distanceMeters
         let marketing = Double(level(of: .marketing))
-        let scoreMultiplier = 1 + 0.12 * marketing + 0.08 * power
+        let multLevel = Double(level(of: .scoreMultiplier))
+        let scoreMultiplier = 1 + 0.06 * multLevel
         let totalMetersDisplay = distance * scoreMultiplier
         let perMeter = 0.35 + marketing * 0.12
         let baseRevenue = distance * perMeter * (0.85 + power * 0.25)
