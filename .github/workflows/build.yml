@@ -1,0 +1,38 @@
+name: Build iOS (simulator)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: build-ios-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Xcode build (no signing)
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 26.3 (fallback to image default)
+        run: |
+          set -e
+          if [ -d "/Applications/Xcode_26.3.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          fi
+          xcodebuild -version
+
+      - name: Build for iOS Simulator (no code signing)
+        run: |
+          set -eo pipefail
+          xcodebuild \
+            -project PlaneLaunchTycoon.xcodeproj \
+            -scheme PlaneLaunchTycoon \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build
