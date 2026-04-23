@@ -63,11 +63,18 @@ jobs:
           ls -la PlaneLaunchTycoon.zip PlaneLaunchTycoon.ipa
           unzip -l PlaneLaunchTycoon.zip | head -40
 
-      - name: Upload build artifacts
+      - name: Upload IPA (for download / SideStore)
         uses: actions/upload-artifact@v4
         with:
-          name: PlaneLaunchTycoon-ios-${{ github.sha }}
-          path: |
-            dist/PlaneLaunchTycoon.zip
-            dist/PlaneLaunchTycoon.ipa
+          name: PlaneLaunchTycoon-${{ github.sha }}
+          path: dist/PlaneLaunchTycoon.ipa
           if-no-files-found: error
+          compression-level: 0
+
+      - name: Upload Payload zip (optional mirror of .ipa)
+        uses: actions/upload-artifact@v4
+        with:
+          name: PlaneLaunchTycoon-payload-zip-${{ github.sha }}
+          path: dist/PlaneLaunchTycoon.zip
+          if-no-files-found: error
+          compression-level: 0
