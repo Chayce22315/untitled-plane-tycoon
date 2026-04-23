@@ -217,7 +217,8 @@ private struct FlightCanvasView: View {
         if phase == .flying {
             let t = date.timeIntervalSinceReferenceDate
             let loop = samples.count
-            let idx = Int(t * 14).truncatingRemainder(dividingBy: max(loop - 1, 1))
+            let span = max(loop - 1, 1)
+            let idx = Int(t * 14) % span
             let a = samples[min(idx, samples.count - 1)]
             let b = samples[min(idx + 1, samples.count - 1)]
             let p = CGPoint(x: a.x * size.width, y: size.height * 0.72 - a.y * size.height * 0.55)

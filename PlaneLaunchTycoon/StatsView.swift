@@ -20,7 +20,7 @@ struct StatsView: View {
                 }
 
                 Section {
-                    Text("Build locally in Xcode on your Mac. This repo does not use GitHub Actions for signing or packaging.")
+                    Text("CI builds an unsigned device .app for compile checks; installable builds need your Mac, Xcode, and signing.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

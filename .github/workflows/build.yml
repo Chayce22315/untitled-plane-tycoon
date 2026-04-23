@@ -1,4 +1,4 @@
-name: Build iOS (simulator)
+name: Build iOS (device)
 
 on:
   push:
@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   build:
-    name: Xcode build (no signing)
+    name: Xcode build for iPhone (unsigned)
     runs-on: macos-15
     env:
       DERIVED_DATA_PATH: ${{ github.workspace }}/DerivedData
@@ -29,23 +29,25 @@ jobs:
           fi
           xcodebuild -version
 
-      - name: Build for iOS Simulator (no code signing)
+      - name: Build for iOS device (compile only, no codesign)
         run: |
           set -eo pipefail
           xcodebuild \
             -project PlaneLaunchTycoon.xcodeproj \
             -scheme PlaneLaunchTycoon \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'generic/platform=iOS' \
             -configuration Debug \
             -derivedDataPath "$DERIVED_DATA_PATH" \
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             build
 
-      - name: Package Payload (simulator .app → zip → .ipa)
+      - name: Package Payload (.app → zip → .ipa)
         run: |
           set -eo pipefail
-          APP_SRC="$DERIVED_DATA_PATH/Build/Products/Debug-iphonesimulator/PlaneLaunchTycoon.app"
+          APP_SRC="$DERIVED_DATA_PATH/Build/Products/Debug-iphoneos/PlaneLaunchTycoon.app"
           test -d "$APP_SRC"
 
           rm -rf "$DIST_DIR"
@@ -53,19 +55,19 @@ jobs:
           cp -R "$APP_SRC" "$DIST_DIR/Payload/"
 
           cd "$DIST_DIR"
-          rm -f PlaneLaunchTycoon-simulator.zip PlaneLaunchTycoon-simulator.ipa
-          zip -r -y PlaneLaunchTycoon-simulator.zip Payload
-          cp PlaneLaunchTycoon-simulator.zip PlaneLaunchTycoon-simulator.ipa
+          rm -f PlaneLaunchTycoon.zip PlaneLaunchTycoon.ipa
+          zip -r -y PlaneLaunchTycoon.zip Payload
+          cp PlaneLaunchTycoon.zip PlaneLaunchTycoon.ipa
 
-          echo "Simulator package (same bytes as .zip, .ipa extension for tooling):"
-          ls -la PlaneLaunchTycoon-simulator.zip PlaneLaunchTycoon-simulator.ipa
-          unzip -l PlaneLaunchTycoon-simulator.zip | head -40
+          echo "Payload layout (unsigned device build; not for App Store install):"
+          ls -la PlaneLaunchTycoon.zip PlaneLaunchTycoon.ipa
+          unzip -l PlaneLaunchTycoon.zip | head -40
 
-      - name: Upload simulator artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: PlaneLaunchTycoon-simulator-${{ github.sha }}
+          name: PlaneLaunchTycoon-ios-${{ github.sha }}
           path: |
-            dist/PlaneLaunchTycoon-simulator.zip
-            dist/PlaneLaunchTycoon-simulator.ipa
+            dist/PlaneLaunchTycoon.zip
+            dist/PlaneLaunchTycoon.ipa
           if-no-files-found: error
