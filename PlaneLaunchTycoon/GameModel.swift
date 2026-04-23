@@ -67,12 +67,18 @@ final class GameModel {
 
     private(set) var upgradeLevels: [UpgradeKind: Int] = [:]
 
-    /// 0...1 while player holds launch
+    /// 0...1 launch power (from swipe: lower on screen = stronger)
     var launchCharge: Double = 0
     private(set) var phase: LaunchPhase = .idle
 
     /// Samples normalized 0...1 x and altitude for the last flight path
     private(set) var lastFlightPath: [FlightSample] = []
+
+    /// Last throw: base meters, score multiplier (marketing + power), coins applied after landing animation
+    private(set) var lastBaseMeters: Double = 0
+    private(set) var lastScoreMultiplier: Double = 1
+    private(set) var lastTotalMetersDisplay: Double = 0
+    private(set) var pendingCoinReward: Double = 0
 
     /// `nonisolated(unsafe)` so `deinit` can cancel tasks; `@Observable` rejects plain `nonisolated` on mutable vars.
     nonisolated(unsafe) private var autopilotTask: Task<Void, Never>?
@@ -114,15 +120,15 @@ final class GameModel {
         launchCharge = 0
     }
 
-    func updateCharge(delta: TimeInterval) {
+    /// `normalizedPowerY` in 0...1: 0 = top of power zone (weakest), 1 = bottom (strongest)
+    func updateLaunchPower(normalizedPowerY: Double) {
         guard phase == .charging else { return }
-        let rate = 0.85 + Double(level(of: .engine)) * 0.04
-        launchCharge = min(1, launchCharge + delta * rate)
+        launchCharge = min(1, max(0, normalizedPowerY))
     }
 
     func releaseLaunch(screenWidth: CGFloat, screenHeight: CGFloat) {
         guard phase == .charging else { return }
-        let power = launchCharge
+        let power = max(0.08, launchCharge)
         launchCharge = 0
         phase = .flying
 
@@ -139,9 +145,18 @@ final class GameModel {
 
         lastFlightPath = path.samples
         let distance = path.distanceMeters
-        let revenue = path.revenue
+        let marketing = Double(level(of: .marketing))
+        let scoreMultiplier = 1 + 0.12 * marketing + 0.08 * power
+        let totalMetersDisplay = distance * scoreMultiplier
+        let perMeter = 0.35 + marketing * 0.12
+        let baseRevenue = distance * perMeter * (0.85 + power * 0.25)
+        let coins = max(1, (baseRevenue * scoreMultiplier).rounded(.down))
 
-        money += revenue
+        lastBaseMeters = distance
+        lastScoreMultiplier = scoreMultiplier
+        lastTotalMetersDisplay = totalMetersDisplay
+        pendingCoinReward = coins
+
         totalLaunches += 1
         totalMetersFlown += distance
         bestDistanceMeters = max(bestDistanceMeters, distance)
@@ -158,12 +173,21 @@ final class GameModel {
         }
     }
 
+    func applyPendingCoinReward() {
+        guard pendingCoinReward > 0 else { return }
+        money += pendingCoinReward
+        pendingCoinReward = 0
+    }
+
     func resetFlightVisual() {
         if phase == .landed {
             landTask?.cancel()
             landTask = nil
             phase = .idle
             lastFlightPath = []
+            lastBaseMeters = 0
+            lastScoreMultiplier = 1
+            lastTotalMetersDisplay = 0
         }
     }
 
