@@ -14,6 +14,7 @@
 		BF0100000000000000000005 /* UpgradeStoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0100000000000000000005 /* UpgradeStoreView.swift */; };
 		BF0100000000000000000006 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0100000000000000000006 /* StatsView.swift */; };
 		BF0100000000000000000007 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FR0100000000000000000007 /* Assets.xcassets */; };
+		BF0100000000000000000008 /* SkyChromeBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR0100000000000000000009 /* SkyChromeBackground.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +25,7 @@
 		FR0100000000000000000005 /* UpgradeStoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpgradeStoreView.swift; sourceTree = "<group>"; };
 		FR0100000000000000000006 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		FR0100000000000000000007 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FR0100000000000000000009 /* SkyChromeBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkyChromeBackground.swift; sourceTree = "<group>"; };
 		FR0100000000000000000008 /* PlaneLaunchTycoon.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PlaneLaunchTycoon.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -55,6 +57,7 @@
 				FR0100000000000000000004 /* RunwayLaunchView.swift */,
 				FR0100000000000000000005 /* UpgradeStoreView.swift */,
 				FR0100000000000000000006 /* StatsView.swift */,
+				FR0100000000000000000009 /* SkyChromeBackground.swift */,
 				FR0100000000000000000007 /* Assets.xcassets */,
 			);
 			path = PlaneLaunchTycoon;
@@ -143,6 +146,7 @@
 				BF0100000000000000000004 /* RunwayLaunchView.swift in Sources */,
 				BF0100000000000000000005 /* UpgradeStoreView.swift in Sources */,
 				BF0100000000000000000006 /* StatsView.swift in Sources */,
+				BF0100000000000000000008 /* SkyChromeBackground.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

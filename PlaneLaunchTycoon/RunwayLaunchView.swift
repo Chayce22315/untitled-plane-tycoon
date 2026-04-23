@@ -7,6 +7,7 @@ struct RunwayLaunchView: View {
     @State private var slotDisplayTotal: Int = 0
     @State private var slotDigitOffsets: [CGFloat] = [0, 0, 0, 0, 0, 0]
     @State private var mergeProgress: CGFloat = 0
+    @State private var multiplierWindUp: CGFloat = 0
 
     private let powerBarWidth: CGFloat = 14
     private let swipeStartMaxY: CGFloat = 120
@@ -66,95 +67,13 @@ struct RunwayLaunchView: View {
                     } else if new == .idle {
                         landingStage = .hidden
                         mergeProgress = 0
-                    }
-                }
-                .onChange(of: landingStage) { _, new in
-                    if new == .mergingMultiplier {
-                        mergeProgress = 0
-                        withAnimation(.easeOut(duration: 0.5)) {
-                            mergeProgress = 1
-                        }
+                        multiplierWindUp = 0
                     }
                 }
             }
             .navigationTitle("Paper Tycoon")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text(game.formattedMoney(game.money))
-                        .font(.headline.monospacedDigit())
-                        .foregroundStyle(.primary)
-                }
-            }
         }
-    }
-}
-
-// MARK: - Sky depth (mostly 2D, reads “out of frame”)
-
-private struct SoaringSkyBackground: View {
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.42, green: 0.78, blue: 1),
-                    Color(red: 0.2, green: 0.48, blue: 0.9)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            // Distant haze band
-            LinearGradient(
-                colors: [
-                    Color.white.opacity(0),
-                    Color.white.opacity(0.22),
-                    Color.white.opacity(0.05)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .offset(y: 40)
-
-            // “Horizon” parallax strip
-            GeometryReader { geo in
-                let w = geo.size.width
-                let h = geo.size.height
-                ZStack {
-                    Ellipse()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.75, green: 0.88, blue: 1).opacity(0.5),
-                                    Color(red: 0.35, green: 0.65, blue: 0.95).opacity(0.25)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .frame(width: w * 1.35, height: h * 0.42)
-                        .offset(y: h * 0.38)
-                        .blur(radius: 1)
-
-                    // Soft clouds (2D layers with offset shadow = faux depth)
-                    ForEach(0 ..< 4, id: \.self) { i in
-                        cloudPuff(seed: i, in: geo.size)
-                    }
-                }
-            }
-        }
-    }
-
-    private func cloudPuff(seed: Int, in size: CGSize) -> some View {
-        let xFrac = [0.12, 0.38, 0.62, 0.82][seed % 4]
-        let yFrac = [0.14, 0.22, 0.18, 0.26][seed % 4]
-        let w = size.width * (0.42 + CGFloat(seed % 3) * 0.06)
-        return Ellipse()
-            .fill(Color.white.opacity(0.38 - Double(seed) * 0.04))
-            .frame(width: w, height: w * 0.35)
-            .offset(x: size.width * xFrac - size.width * 0.5, y: size.height * yFrac - size.height * 0.35)
-            .shadow(color: .white.opacity(0.35), radius: 0, x: 0, y: -2)
-            .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 18)
     }
 }
 
@@ -269,6 +188,9 @@ private extension RunwayLaunchView {
                         .foregroundStyle(.white)
 
                 case .mergingMultiplier:
+                    let backEase = 1 - pow(1 - multiplierWindUp, 2)
+                    let windBackX = 115 * (1 - backEase)
+                    let windBackY = 28 * (1 - backEase)
                     HStack(spacing: 6) {
                         Text("\(Int(game.lastBaseMeters))")
                             .font(.system(size: 44, weight: .heavy, design: .rounded))
@@ -276,13 +198,19 @@ private extension RunwayLaunchView {
                         Text("×")
                             .font(.system(size: 40, weight: .bold, design: .rounded))
                             .foregroundStyle(.yellow)
-                            .scaleEffect(0.6 + 0.4 * mergeProgress)
-                            .offset(x: 40 * (1 - mergeProgress), y: -30 * (1 - mergeProgress))
+                            .scaleEffect((0.55 + 0.45 * multiplierWindUp) * (0.75 + 0.25 * mergeProgress))
+                            .offset(
+                                x: -windBackX * 0.65 + 42 * (1 - mergeProgress),
+                                y: windBackY * 0.4 - 32 * (1 - mergeProgress)
+                            )
                         Text(String(format: "%.2f", game.lastScoreMultiplier))
                             .font(.system(size: 36, weight: .bold, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(.orange)
-                            .offset(x: 50 * (1 - mergeProgress), y: 20 * (1 - mergeProgress))
+                            .offset(
+                                x: -windBackX * 0.35 + 52 * (1 - mergeProgress),
+                                y: -windBackY * 0.35 + 22 * (1 - mergeProgress)
+                            )
                     }
                     .foregroundStyle(.white)
 
@@ -361,6 +289,7 @@ private extension RunwayLaunchView {
     private func startLandingSequence() {
         landingStage = .baseMeters
         mergeProgress = 0
+        multiplierWindUp = 0
         let target = Int(min(game.lastTotalMetersDisplay, 999_999).rounded())
         slotDisplayTotal = Int.random(in: max(1, target - 400) ... max(target + 50, target + 1))
         alignSlotOffsets(to: slotDisplayTotal)
@@ -369,7 +298,17 @@ private extension RunwayLaunchView {
             try? await Task.sleep(for: .milliseconds(700))
             guard game.phase == .landed else { return }
             landingStage = .mergingMultiplier
-            try? await Task.sleep(for: .milliseconds(600))
+            multiplierWindUp = 0
+            mergeProgress = 0
+            withAnimation(.spring(response: 0.48, dampingFraction: 0.78)) {
+                multiplierWindUp = 1
+            }
+            try? await Task.sleep(for: .milliseconds(520))
+            guard game.phase == .landed else { return }
+            withAnimation(.easeIn(duration: 0.42)) {
+                mergeProgress = 1
+            }
+            try? await Task.sleep(for: .milliseconds(520))
             guard game.phase == .landed else { return }
             landingStage = .slotSpin
             await runSlotSpin(to: target)

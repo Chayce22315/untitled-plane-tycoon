@@ -5,19 +5,25 @@ struct UpgradeStoreView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Text("Spend earnings on better launches and passive income. Each level stacks.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .listRowBackground(Color.clear)
-                }
+            ZStack {
+                SoaringSkyBackground()
+                    .ignoresSafeArea()
 
-                Section("Upgrades") {
-                    ForEach(UpgradeKind.allCases) { kind in
-                        UpgradeRow(kind: kind)
+                List {
+                    Section {
+                        Text("Spend earnings on better launches and passive income. Each level stacks.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .listRowBackground(Color.clear)
+                    }
+
+                    Section("Upgrades") {
+                        ForEach(UpgradeKind.allCases) { kind in
+                            UpgradeRow(kind: kind)
+                        }
                     }
                 }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Hangar shop")
         }
@@ -65,6 +71,10 @@ private struct UpgradeRow: View {
             .disabled(!affordable)
         }
         .padding(.vertical, 4)
+        .listRowBackground(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.22))
+        )
     }
 }
 
