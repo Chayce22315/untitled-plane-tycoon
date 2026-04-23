@@ -1,5 +1,6 @@
-# Xcode
+# Xcode / CI local outputs
 DerivedData/
+dist/
 *.xcuserstate
 *.xcuserdatad/
 xcuserdata/
