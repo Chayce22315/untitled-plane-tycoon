@@ -7,7 +7,14 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             RunwayLaunchView()
-                .tabItem { Label("Launch", systemImage: "paperplane") }
+                .tabItem {
+                    Label {
+                        Text("Launch")
+                    } icon: {
+                        Image("SoaringPlaneTab")
+                            .renderingMode(.original)
+                    }
+                }
                 .tag(0)
 
             UpgradeStoreView()

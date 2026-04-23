@@ -16,15 +16,23 @@ struct RunwayLaunchView: View {
             GeometryReader { geo in
                 let size = geo.size
                 ZStack {
-                    skyGradient
+                    SoaringSkyBackground()
                         .ignoresSafeArea(edges: .top)
 
-                    FlightCanvasView(
+                    FlightGroundCanvasView(
                         samples: game.lastFlightPath,
                         phase: game.phase,
                         charge: game.launchCharge
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    FlightPlaneLayerView(
+                        samples: game.lastFlightPath,
+                        phase: game.phase,
+                        charge: game.launchCharge
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .allowsHitTesting(false)
 
                     if game.phase == .flying {
                         liveMetersHud(baseMeters: game.lastBaseMeters, samples: game.lastFlightPath)
@@ -80,17 +88,77 @@ struct RunwayLaunchView: View {
             }
         }
     }
+}
 
-    private var skyGradient: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.5, green: 0.82, blue: 1),
-                Color(red: 0.22, green: 0.52, blue: 0.92)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+// MARK: - Sky depth (mostly 2D, reads “out of frame”)
+
+private struct SoaringSkyBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.42, green: 0.78, blue: 1),
+                    Color(red: 0.2, green: 0.48, blue: 0.9)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            // Distant haze band
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0),
+                    Color.white.opacity(0.22),
+                    Color.white.opacity(0.05)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .offset(y: 40)
+
+            // “Horizon” parallax strip
+            GeometryReader { geo in
+                let w = geo.size.width
+                let h = geo.size.height
+                ZStack {
+                    Ellipse()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.75, green: 0.88, blue: 1).opacity(0.5),
+                                    Color(red: 0.35, green: 0.65, blue: 0.95).opacity(0.25)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: w * 1.35, height: h * 0.42)
+                        .offset(y: h * 0.38)
+                        .blur(radius: 1)
+
+                    // Soft clouds (2D layers with offset shadow = faux depth)
+                    ForEach(0 ..< 4, id: \.self) { i in
+                        cloudPuff(seed: i, in: geo.size)
+                    }
+                }
+            }
+        }
     }
+
+    private func cloudPuff(seed: Int, in size: CGSize) -> some View {
+        let xFrac = [0.12, 0.38, 0.62, 0.82][seed % 4]
+        let yFrac = [0.14, 0.22, 0.18, 0.26][seed % 4]
+        let w = size.width * (0.42 + CGFloat(seed % 3) * 0.06)
+        return Ellipse()
+            .fill(Color.white.opacity(0.38 - Double(seed) * 0.04))
+            .frame(width: w, height: w * 0.35)
+            .offset(x: size.width * xFrac - size.width * 0.5, y: size.height * yFrac - size.height * 0.35)
+            .shadow(color: .white.opacity(0.35), radius: 0, x: 0, y: -2)
+            .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 18)
+    }
+}
+
+private extension RunwayLaunchView {
 
     private func powerBarOverlay(size: CGSize) -> some View {
         let zoneHeight = size.height * 0.42
@@ -359,24 +427,17 @@ struct RunwayLaunchView: View {
     }
 }
 
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
+// MARK: - Flight layers (ground 2D + plane with faux-3D tilt)
 
-private struct FlightCanvasView: View {
+private struct FlightGroundCanvasView: View {
     var samples: [GameModel.FlightSample]
     var phase: GameModel.LaunchPhase
     var charge: Double
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: samples.isEmpty || phase != .flying)) { timeline in
-            Canvas { context, size in
-                drawRunway(context: &context, size: size)
-                drawPath(context: &context, size: size)
-                drawPaperPlane(context: &context, size: size, date: timeline.date)
-            }
+        Canvas { context, size in
+            drawRunway(context: &context, size: size)
+            drawPath(context: &context, size: size)
         }
     }
 
@@ -402,11 +463,34 @@ private struct FlightCanvasView: View {
         }
         context.stroke(path, with: .color(.white.opacity(0.4)), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [6, 8]))
     }
+}
+
+private struct FlightPlaneLayerView: View {
+    var samples: [GameModel.FlightSample]
+    var phase: GameModel.LaunchPhase
+    var charge: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: samples.isEmpty || phase != .flying)) { timeline in
+                Canvas { context, size in
+                    drawPaperPlane(context: &context, size: size, date: timeline.date)
+                }
+                .frame(width: geo.size.width, height: geo.size.height)
+                .rotation3DEffect(.degrees(58), axis: (x: 1, y: 0, z: 0), anchor: .center, perspective: 0.52)
+                .rotation3DEffect(.degrees(-6), axis: (x: 0, y: 1, z: 0), perspective: 0.45)
+                .scaleEffect(x: 1.06, y: 1.06, anchor: .center)
+                .offset(y: -geo.size.height * 0.06)
+                .shadow(color: .black.opacity(0.35), radius: 18, x: 0, y: 26)
+                .shadow(color: .white.opacity(0.25), radius: 2, x: 0, y: -1)
+            }
+        }
+    }
 
     private func drawPaperPlane(context: inout GraphicsContext, size: CGSize, date: Date) {
         let start = CGPoint(x: 36, y: size.height * 0.68 - charge * 36)
         if samples.isEmpty {
-            drawPaperAirplane(context: &context, at: start, angle: .degrees(-12 + charge * 18))
+            drawPaperAirplane(context: &context, at: start, angle: .degrees(-12 + charge * 18), scale: 1.05)
             return
         }
 
@@ -420,38 +504,69 @@ private struct FlightCanvasView: View {
             let q = CGPoint(x: b.x * size.width, y: size.height * 0.72 - b.y * size.height * 0.55)
             let angle = atan2(q.y - p.y, q.x - p.x)
             let pos = CGPoint(x: (p.x + q.x) / 2, y: (p.y + q.y) / 2)
-            drawPaperAirplane(context: &context, at: pos, angle: .radians(angle))
+            drawPaperAirplane(context: &context, at: pos, angle: .radians(angle), scale: 1.08)
         } else if phase == .charging {
-            drawPaperAirplane(context: &context, at: start, angle: .degrees(-12 + charge * 18))
+            drawPaperAirplane(context: &context, at: start, angle: .degrees(-12 + charge * 18), scale: 1.05)
         } else {
             let last = samples.last!
             let pos = CGPoint(x: last.x * size.width, y: size.height * 0.72 - last.y * size.height * 0.55)
-            drawPaperAirplane(context: &context, at: pos, angle: .degrees(-35))
+            drawPaperAirplane(context: &context, at: pos, angle: .degrees(-35), scale: 1.02)
         }
     }
 
-    private func drawPaperAirplane(context: inout GraphicsContext, at position: CGPoint, angle: Angle) {
+    private func drawPaperAirplane(context: inout GraphicsContext, at position: CGPoint, angle: Angle, scale: CGFloat) {
         var layer = context
         layer.translateBy(x: position.x, y: position.y)
         layer.rotate(by: angle)
+        layer.scaleBy(x: scale, y: scale)
+
+        var shadow = Path()
+        shadow.move(to: CGPoint(x: 38, y: 22))
+        shadow.addLine(to: CGPoint(x: -26, y: 8))
+        shadow.addLine(to: CGPoint(x: -18, y: 22))
+        shadow.closeSubpath()
+        layer.fill(shadow, with: .color(Color.black.opacity(0.12)))
 
         var nose = Path()
-        nose.move(to: CGPoint(x: 34, y: 0))
-        nose.addLine(to: CGPoint(x: -22, y: -14))
+        nose.move(to: CGPoint(x: 38, y: 0))
+        nose.addLine(to: CGPoint(x: -24, y: -16))
         nose.addLine(to: CGPoint(x: -14, y: 0))
-        nose.addLine(to: CGPoint(x: -22, y: 14))
+        nose.addLine(to: CGPoint(x: -24, y: 16))
         nose.closeSubpath()
-        layer.fill(nose, with: .color(Color(white: 0.97)))
+        layer.fill(nose, with: .linearGradient(
+            Gradient(colors: [Color(white: 1), Color(red: 0.92, green: 0.94, blue: 0.98)]),
+            startPoint: CGPoint(x: 20, y: -10),
+            endPoint: CGPoint(x: -20, y: 12)
+        ))
 
         var fold = Path()
-        fold.move(to: CGPoint(x: 28, y: 0))
-        fold.addLine(to: CGPoint(x: -18, y: -10))
+        fold.move(to: CGPoint(x: 30, y: 0))
+        fold.addLine(to: CGPoint(x: -20, y: -11))
         fold.addLine(to: CGPoint(x: -10, y: 0))
-        fold.addLine(to: CGPoint(x: -18, y: 10))
+        fold.addLine(to: CGPoint(x: -20, y: 11))
         fold.closeSubpath()
-        layer.fill(fold, with: .color(Color(white: 0.88)))
+        layer.fill(fold, with: .linearGradient(
+            Gradient(colors: [Color(white: 0.94), Color(white: 0.82)]),
+            startPoint: CGPoint(x: 12, y: -6),
+            endPoint: CGPoint(x: -16, y: 8)
+        ))
 
-        layer.stroke(nose, with: .color(Color(white: 0.55).opacity(0.6)), lineWidth: 0.8)
+        var wingLine = Path()
+        wingLine.move(to: CGPoint(x: 22, y: -2))
+        wingLine.addLine(to: CGPoint(x: -18, y: -11))
+        layer.stroke(wingLine, with: .color(Color(white: 0.55).opacity(0.45)), lineWidth: 0.9)
+        var wingLine2 = Path()
+        wingLine2.move(to: CGPoint(x: 22, y: 2))
+        wingLine2.addLine(to: CGPoint(x: -18, y: 11))
+        layer.stroke(wingLine2, with: .color(Color(white: 0.55).opacity(0.45)), lineWidth: 0.9)
+
+        layer.stroke(nose, with: .color(Color(white: 0.5).opacity(0.55)), lineWidth: 0.7)
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
